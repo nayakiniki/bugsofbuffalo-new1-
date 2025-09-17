@@ -3,12 +3,12 @@ from setuptools import setup, find_packages
 setup(
     name="bugs-of-buffalo",
     version="1.0.0",
-    description="AI-powered cattle breed identification system",
+    description="AI-powered Indian cattle and buffalo breed identification system",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     author="Bugs of Buffalo Team",
     author_email="team@bugsofbuffalo.com",
-    url="https://github.com/your-username/bugs-of-buffalo",
+    url="https://github.com/nayakiniki/bugs-of-buffalo",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 4 - Beta",
