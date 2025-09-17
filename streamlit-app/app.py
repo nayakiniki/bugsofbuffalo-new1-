@@ -1,6 +1,6 @@
 """
 Bugs of Buffalo - Streamlit Web Application
-Main application for cattle breed identification with multilingual support.
+Updated for the specific dataset structure.
 """
 
 import streamlit as st
@@ -10,6 +10,7 @@ import os
 import sys
 import time
 from typing import Dict, List, Tuple, Optional
+from pathlib import Path
 
 # Add the parent directory to the path to import utils
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -77,6 +78,12 @@ st.markdown("""
         margin: 0.5rem 0;
         border-left: 4px solid #2E86AB;
     }
+    .buffalo-card {
+        border-left: 4px solid #FF6B6B;
+    }
+    .cattle-card {
+        border-left: 4px solid #4ECDC4;
+    }
     .stButton>button {
         background-color: #2E86AB;
         color: white;
@@ -113,19 +120,24 @@ def load_classifier():
         # Use relative paths for Streamlit Cloud deployment
         model_path = os.path.join(os.path.dirname(__file__), 'saved_model', 'bugs_of_buffalo_model.h5')
         mapping_path = os.path.join(os.path.dirname(__file__), 'saved_model', 'class_mapping.json')
+        breed_types_path = os.path.join(os.path.dirname(__file__), 'saved_model', 'breed_types.json')
         
         # Fallback: check if files exist in parent directory (for local development)
         if not os.path.exists(model_path):
             model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'saved_model', 'bugs_of_buffalo_model.h5')
         if not os.path.exists(mapping_path):
             mapping_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'saved_model', 'class_mapping.json')
+        if not os.path.exists(breed_types_path):
+            breed_types_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'saved_model', 'breed_types.json')
         
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"Model file not found at: {model_path}")
         if not os.path.exists(mapping_path):
             raise FileNotFoundError(f"Mapping file not found at: {mapping_path}")
+        if not os.path.exists(breed_types_path):
+            raise FileNotFoundError(f"Breed types file not found at: {breed_types_path}")
         
-        classifier = BreedClassifier(model_path, mapping_path)
+        classifier = BreedClassifier(model_path, mapping_path, breed_types_path)
         st.session_state.classifier_loaded = True
         return classifier
         
@@ -180,6 +192,42 @@ def display_language_selector():
     
     return languages[selected_language], selected_language
 
+def display_supported_breeds():
+    """Display supported breeds in sidebar."""
+    st.sidebar.markdown("## 🐄 Supported Breeds")
+    
+    if st.session_state.classifier_loaded:
+        breeds_by_type = st.session_state.classifier.get_all_breeds_by_type()
+        
+        st.sidebar.markdown("### 🐃 Buffalo Breeds")
+        for breed in sorted(breeds_by_type['Buffalo']):
+            st.sidebar.markdown(f"- {breed}")
+        
+        st.sidebar.markdown("### 🐂 Cattle Breeds")
+        for breed in sorted(breeds_by_type['Cattle']):
+            st.sidebar.markdown(f"- {breed}")
+    else:
+        st.sidebar.markdown("""
+        ### 🐃 Buffalo Breeds
+        - Banni
+        - Jaffrabadi
+        - Mehsana
+        - Murrah
+        - Nagpuri
+        
+        ### 🐂 Cattle Breeds
+        - Gir
+        - Hallikar
+        - Hariana
+        - Kankrej
+        - Khillar
+        - Ongole
+        - Rathi
+        - Red Sindhi
+        - Sahiwal
+        - Tharparkar
+        """)
+
 def display_about_section():
     """Display about information in sidebar."""
     st.sidebar.markdown("---")
@@ -187,21 +235,23 @@ def display_about_section():
     
     st.sidebar.markdown("""
     **Bugs of Buffalo** is an AI-powered tool designed to help farmers and field workers 
-    accurately identify cattle and buffalo breeds across India.
+    accurately identify Indian cattle and buffalo breeds using image recognition.
     
     ### Features:
     - 🐄 Image-based breed identification
-    - 🌍 Multilingual support
+    - 🌍 Multilingual support (11 languages)
     - 📱 Mobile-friendly interface
     - 🔍 High accuracy AI model
     - 🎯 Real-time predictions
     
-    ### Supported Breeds:
-    - Gir, Sahiwal, Murrah, Jaffrabadi
-    - Kankrej, Hallikar, Tharparkar
-    - Red Sindhi, Ongole, Hariana
-    - And many more...
+    ### Dataset:
+    - 5 Buffalo breeds
+    - 10 Cattle breeds
+    - High-quality images
+    - Indian indigenous breeds
     """)
+    
+    display_supported_breeds()
     
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 📞 Support")
@@ -240,6 +290,7 @@ def display_upload_section():
         - Capture side view of the animal
         - Avoid blurry or distant shots
         - Ensure good contrast with background
+        - Focus on the animal's body features
         """)
     
     if uploaded_file is not None:
@@ -261,7 +312,7 @@ def display_upload_section():
     
     return False
 
-def display_prediction_results(predicted_breeds, confidences, target_language, language_label):
+def display_prediction_results(predicted_breeds, confidences, animal_types, target_language, language_label):
     """Display prediction results with translations."""
     st.markdown("## 🔍 Prediction Results")
     
@@ -272,10 +323,16 @@ def display_prediction_results(predicted_breeds, confidences, target_language, l
     # Display top prediction
     top_breed = predicted_breeds[0]
     top_confidence = confidences[0]
+    top_animal_type = animal_types[0]
+    
+    # Get animal type emoji and color
+    animal_emoji = "🐃" if top_animal_type == "Buffalo" else "🐂"
+    card_class = "buffalo-card" if top_animal_type == "Buffalo" else "cattle-card"
     
     st.markdown(f"""
     <div class="success-box">
-        <h3>🎯 Top Prediction: {top_breed}</h3>
+        <h3>🎯 Top Prediction: {animal_emoji} {top_breed}</h3>
+        <p><strong>Animal Type:</strong> {top_animal_type}</p>
         <p><strong>Confidence:</strong> {top_confidence:.2f}%</p>
     </div>
     """, unsafe_allow_html=True)
@@ -283,10 +340,14 @@ def display_prediction_results(predicted_breeds, confidences, target_language, l
     # Display alternative predictions
     if len(predicted_breeds) > 1:
         st.markdown("### 🔄 Alternative Predictions")
-        for i, (breed, confidence) in enumerate(zip(predicted_breeds[1:], confidences[1:]), 2):
+        for i, (breed, confidence, animal_type) in enumerate(zip(predicted_breeds[1:], confidences[1:], animal_types[1:]), 2):
+            animal_emoji = "🐃" if animal_type == "Buffalo" else "🐂"
+            card_class = "buffalo-card" if animal_type == "Buffalo" else "cattle-card"
+            
             st.markdown(f"""
-            <div class="breed-card">
-                <strong>#{i}: {breed}</strong> - {confidence:.2f}% confidence
+            <div class="breed-card {card_class}">
+                <strong>#{i}: {animal_emoji} {breed}</strong> - {confidence:.2f}% confidence<br>
+                <small>Type: {animal_type}</small>
             </div>
             """, unsafe_allow_html=True)
     
@@ -301,7 +362,7 @@ def display_prediction_results(predicted_breeds, confidences, target_language, l
                 st.markdown("### 📖 Breed Information")
                 st.markdown(f"""
                 <div class="info-box">
-                    <h4>{translated_info['name']}</h4>
+                    <h4>{translated_info['name']} ({translated_info['animal_type']})</h4>
                     <p><strong>Description:</strong> {translated_info['description']}</p>
                     <p><strong>Characteristics:</strong> {translated_info['characteristics']}</p>
                     <p><strong>Primary Purpose:</strong> {translated_info['purpose']}</p>
@@ -311,28 +372,32 @@ def display_prediction_results(predicted_breeds, confidences, target_language, l
                 
             except Exception as e:
                 st.warning(f"Translation service temporarily unavailable. Error: {str(e)}")
+                display_english_breed_info(top_breed, top_animal_type)
     else:
         st.warning("Translation features are currently unavailable. Using English information.")
-        
-        # Display basic English information
-        breed_info = st.session_state.classifier.get_breed_info(top_breed)
-        st.markdown("### 📖 Breed Information (English)")
-        st.markdown(f"""
-        <div class="info-box">
-            <h4>{breed_info['name']}</h4>
-            <p><strong>Description:</strong> {breed_info['description']}</p>
-            <p><strong>Origin:</strong> {breed_info['origin']}</p>
-            <p><strong>Characteristics:</strong> {breed_info['characteristics']}</p>
-            <p><strong>Average Weight:</strong> {breed_info['average_weight']}</p>
-            <p><strong>Lifespan:</strong> {breed_info['lifespan']}</p>
-        </div>
-        """, unsafe_allow_html=True)
+        display_english_breed_info(top_breed, top_animal_type)
+
+def display_english_breed_info(breed_name, animal_type):
+    """Display breed information in English."""
+    breed_info = st.session_state.classifier.get_breed_info(breed_name)
+    
+    st.markdown("### 📖 Breed Information (English)")
+    st.markdown(f"""
+    <div class="info-box">
+        <h4>{breed_info['name']} ({animal_type})</h4>
+        <p><strong>Description:</strong> {breed_info['description']}</p>
+        <p><strong>Origin:</strong> {breed_info['origin']}</p>
+        <p><strong>Characteristics:</strong> {breed_info['characteristics']}</p>
+        <p><strong>Average Weight:</strong> {breed_info['average_weight']}</p>
+        <p><strong>Lifespan:</strong> {breed_info['lifespan']}</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 def main():
     """Main application function."""
     # Header
     st.markdown('<h1 class="main-header">🐃 Bugs of Buffalo</h1>', unsafe_allow_html=True)
-    st.markdown("### AI-Powered Cattle Breed Identification System")
+    st.markdown("### AI-Powered Indian Cattle & Buffalo Breed Identification")
     st.markdown("---")
     
     # Load resources
@@ -352,9 +417,15 @@ def main():
     if not st.session_state.classifier_loaded:
         st.error("""
         ❌ AI model could not be loaded. Please ensure:
-        1. The model file exists in the saved_model directory
+        1. The model files exist in the saved_model directory
         2. All dependencies are installed
         3. You have sufficient permissions
+        
+        If you haven't trained the model yet, run:
+        ```bash
+        cd ml-model
+        python train.py
+        ```
         """)
         return
     
@@ -366,7 +437,7 @@ def main():
         if st.button("🔍 Identify Breed", type="primary", use_container_width=True):
             with st.spinner("🤖 Analyzing image..."):
                 try:
-                    predicted_breeds, confidences, _ = st.session_state.classifier.predict_breed(
+                    predicted_breeds, confidences, animal_types, _ = st.session_state.classifier.predict_breed(
                         st.session_state.uploaded_image, top_k=3
                     )
                     
@@ -374,6 +445,7 @@ def main():
                     st.session_state.last_prediction = {
                         'breeds': predicted_breeds,
                         'confidences': confidences,
+                        'animal_types': animal_types,
                         'language': target_language,
                         'language_label': language_label
                     }
@@ -387,6 +459,7 @@ def main():
                 display_prediction_results(
                     st.session_state.last_prediction['breeds'],
                     st.session_state.last_prediction['confidences'],
+                    st.session_state.last_prediction['animal_types'],
                     st.session_state.last_prediction['language'],
                     st.session_state.last_prediction['language_label']
                 )
@@ -397,6 +470,7 @@ def main():
     <div style="text-align: center; color: #666; font-size: 0.9rem;">
         <p>Built with ❤️ for Smart India Hackathon 2024 | 🐃 Bugs of Buffalo Team</p>
         <p>Powered by TensorFlow, Streamlit, and Mistral AI</p>
+        <p>Dataset: Indian Cattle & Buffalo Breeds</p>
     </div>
     """, unsafe_allow_html=True)
 
