@@ -468,7 +468,7 @@ def main():
     st.markdown("---")
     st.markdown("""
     <div style="text-align: center; color: #666; font-size: 0.9rem;">
-        <p>Built with ❤️ for Smart India Hackathon 2024 | 🐃 Bugs of Buffalo Team</p>
+        <p>Built with ❤️ for Smart India Hackathon 2025 | 🐃 Bugs of Buffalo Team</p>
         <p>Powered by TensorFlow, Streamlit, and Mistral AI</p>
         <p>Dataset: Indian Cattle & Buffalo Breeds</p>
     </div>
