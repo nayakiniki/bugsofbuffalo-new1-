@@ -2,23 +2,16 @@
 
 An AI-powered web application for identifying Indian cattle and buffalo breeds using image recognition with multilingual support.
 
-## Features
+## 🌟 Features
 
-- **Image-based Breed Recognition**: Upload images to identify cattle/buffalo breeds
-- **Multilingual Support**: Get results in English, Hindi, Punjabi, Bengali, Marathi, and Odia
-- **AI-Powered**: Uses TensorFlow/Keras with transfer learning
-- **Real-time Translation**: Integrates with Mistral AI's Mixtral 8x7B via OpenRouter
-- **User-Friendly Interface**: Built with Streamlit for easy deployment
+- **🐄 Image-based Breed Recognition**: Upload images to identify cattle/buffalo breeds
+- **🌍 Multilingual Support**: Get results in 11 Indian languages
+- **🤖 AI-Powered**: Uses TensorFlow/Keras with EfficientNetB0 transfer learning
+- **🎯 Real-time Translation**: Integrates with Mistral AI's Mixtral 8x7B via OpenRouter
+- **📱 Mobile-Friendly**: Responsive design works on all devices
+- **⚡ Fast Predictions**: Optimized model for quick inference
 
-## Tech Stack
-
-- **Frontend**: Streamlit
-- **Backend**: Python, TensorFlow, Keras
-- **AI Model**: EfficientNetB0 (Transfer Learning)
-- **Translation**: Mistral AI Mixtral 8x7B via OpenRouter
-- **Deployment**: Streamlit Community Cloud
-
-## Setup Instructions
+## 🚀 Quick Start
 
 ### Prerequisites
 
@@ -26,7 +19,7 @@ An AI-powered web application for identifying Indian cattle and buffalo breeds u
 - pip
 - Git
 
-### Local Development
+### Installation
 
 1. **Clone the repository**
    ```bash
