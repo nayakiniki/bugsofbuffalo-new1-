@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Bugs of Buffalo - Model Training Script
-Train a deep learning model for cattle breed classification.
+Customized for the specific dataset structure from GitHub.
 """
 
 import tensorflow as tf
@@ -17,11 +17,30 @@ import json
 import os
 from datetime import datetime
 import argparse
+from pathlib import Path
 
 def create_data_generators(data_dir, img_size=(224, 224), batch_size=32, validation_split=0.2):
     """
     Create training and validation data generators with augmentation.
+    Customized for the specific dataset structure.
     """
+    # Check if the dataset has the expected structure
+    data_path = Path(data_dir)
+    if not data_path.exists():
+        raise ValueError(f"Data directory not found: {data_dir}")
+    
+    # Check for Buffalo and Cattle subdirectories
+    buffalo_path = data_path / "Buffalo"
+    cattle_path = data_path / "Cattle"
+    
+    if not buffalo_path.exists() or not cattle_path.exists():
+        raise ValueError("Dataset should contain 'Buffalo' and 'Cattle' directories")
+    
+    print("Dataset structure found:")
+    print("Buffalo breeds:", [d.name for d in buffalo_path.iterdir() if d.is_dir()])
+    print("Cattle breeds:", [d.name for d in cattle_path.iterdir() if d.is_dir()])
+    
+    # Data augmentation for training
     train_datagen = ImageDataGenerator(
         rescale=1./255,
         validation_split=validation_split,
@@ -35,11 +54,13 @@ def create_data_generators(data_dir, img_size=(224, 224), batch_size=32, validat
         fill_mode='nearest'
     )
     
+    # Validation data generator (only rescaling)
     val_datagen = ImageDataGenerator(
         rescale=1./255,
         validation_split=validation_split
     )
     
+    # Training data
     train_generator = train_datagen.flow_from_directory(
         directory=data_dir,
         target_size=img_size,
@@ -50,6 +71,7 @@ def create_data_generators(data_dir, img_size=(224, 224), batch_size=32, validat
         seed=42
     )
     
+    # Validation data
     validation_generator = val_datagen.flow_from_directory(
         directory=data_dir,
         target_size=img_size,
@@ -60,11 +82,12 @@ def create_data_generators(data_dir, img_size=(224, 224), batch_size=32, validat
         seed=42
     )
     
+    # Get class names
     class_names = list(train_generator.class_indices.keys())
     
     return train_generator, validation_generator, class_names
 
-def create_model(input_shape=(224, 224, 3), num_classes=10):
+def create_model(input_shape=(224, 224, 3), num_classes=15):
     """
     Create the transfer learning model using EfficientNetB0.
     """
@@ -72,14 +95,13 @@ def create_model(input_shape=(224, 224, 3), num_classes=10):
         include_top=False,
         weights='imagenet',
         input_shape=input_shape,
-        pooling=None
+        pooling='avg'
     )
     
     base_model.trainable = False
     
     inputs = keras.Input(shape=input_shape)
     x = base_model(inputs, training=False)
-    x = layers.GlobalAveragePooling2D()(x)
     x = layers.BatchNormalization()(x)
     x = layers.Dropout(0.3)(x)
     x = layers.Dense(512, activation='relu')(x)
@@ -95,7 +117,7 @@ def create_model(input_shape=(224, 224, 3), num_classes=10):
     model.compile(
         optimizer=Adam(learning_rate=0.001),
         loss='categorical_crossentropy',
-        metrics=['accuracy', 'precision', 'recall']
+        metrics=['accuracy', 'precision', 'recall', 'f1_score']
     )
     
     return model
@@ -112,7 +134,8 @@ def train_model(model, train_generator, validation_generator, epochs=50, callbac
         epochs=epochs,
         validation_data=validation_generator,
         callbacks=callbacks,
-        verbose=1
+        verbose=1,
+        class_weight='balanced'  # Handle class imbalance
     )
     
     return history
@@ -124,15 +147,18 @@ def fine_tune_model(model, train_generator, validation_generator, fine_tune_epoc
     base_model = model.layers[1]
     base_model.trainable = True
     
+    # Freeze the first 100 layers, unfreeze the rest
     for layer in base_model.layers[:100]:
         layer.trainable = False
     
+    # Recompile with lower learning rate
     model.compile(
         optimizer=Adam(learning_rate=1e-5),
         loss='categorical_crossentropy',
-        metrics=['accuracy', 'precision', 'recall']
+        metrics=['accuracy', 'precision', 'recall', 'f1_score']
     )
     
+    # Fine-tuning callbacks
     fine_tune_callbacks = [
         EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True),
         ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=3, min_lr=1e-7)
@@ -158,16 +184,32 @@ def save_model_and_artifacts(model, class_names, train_generator, history, fine_
     
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     
+    # Save the model
     model_path = os.path.join(save_dir, 'bugs_of_buffalo_model.h5')
     model.save(model_path)
     print(f"Model saved to {model_path}")
     
+    # Save class mapping
     class_mapping = {i: class_name for i, class_name in enumerate(class_names)}
     mapping_path = os.path.join(save_dir, 'class_mapping.json')
     with open(mapping_path, 'w') as f:
         json.dump(class_mapping, f, indent=2)
     print(f"Class mapping saved to {mapping_path}")
     
+    # Save breed type information (Cattle vs Buffalo)
+    breed_types = {}
+    for breed in class_names:
+        if breed in ['Banni', 'Jaffrabadi', 'Mehsana', 'Murrah', 'Nagpuri']:
+            breed_types[breed] = 'Buffalo'
+        else:
+            breed_types[breed] = 'Cattle'
+    
+    breed_types_path = os.path.join(save_dir, 'breed_types.json')
+    with open(breed_types_path, 'w') as f:
+        json.dump(breed_types, f, indent=2)
+    print(f"Breed types saved to {breed_types_path}")
+    
+    # Save training history
     history_path = os.path.join(save_dir, f'training_history_{timestamp}.json')
     history_dict = {
         'training_history': history.history,
@@ -182,7 +224,7 @@ def save_model_and_artifacts(model, class_names, train_generator, history, fine_
         json.dump(history_dict, f, indent=2)
     print(f"Training history saved to {history_path}")
     
-    return model_path, mapping_path
+    return model_path, mapping_path, breed_types_path
 
 def plot_training_history(history, fine_tune_history=None):
     """
@@ -190,6 +232,7 @@ def plot_training_history(history, fine_tune_history=None):
     """
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 10))
     
+    # Accuracy
     ax1.plot(history.history['accuracy'], label='Training Accuracy')
     ax1.plot(history.history['val_accuracy'], label='Validation Accuracy')
     if fine_tune_history:
@@ -204,6 +247,7 @@ def plot_training_history(history, fine_tune_history=None):
     ax1.set_ylabel('Accuracy')
     ax1.legend()
     
+    # Loss
     ax2.plot(history.history['loss'], label='Training Loss')
     ax2.plot(history.history['val_loss'], label='Validation Loss')
     if fine_tune_history:
@@ -218,6 +262,7 @@ def plot_training_history(history, fine_tune_history=None):
     ax2.set_ylabel('Loss')
     ax2.legend()
     
+    # Precision
     ax3.plot(history.history['precision'], label='Training Precision')
     ax3.plot(history.history['val_precision'], label='Validation Precision')
     ax3.set_title('Model Precision')
@@ -225,6 +270,7 @@ def plot_training_history(history, fine_tune_history=None):
     ax3.set_ylabel('Precision')
     ax3.legend()
     
+    # Recall
     ax4.plot(history.history['recall'], label='Training Recall')
     ax4.plot(history.history['val_recall'], label='Validation Recall')
     ax4.set_title('Model Recall')
@@ -236,11 +282,29 @@ def plot_training_history(history, fine_tune_history=None):
     plt.savefig('../saved_model/training_history.png', dpi=300, bbox_inches='tight')
     plt.show()
 
+def analyze_dataset(data_dir):
+    """
+    Analyze the dataset structure and provide statistics.
+    """
+    data_path = Path(data_dir)
+    breed_counts = {}
+    
+    for animal_type in ['Buffalo', 'Cattle']:
+        animal_path = data_path / animal_type
+        if animal_path.exists():
+            breed_counts[animal_type] = {}
+            for breed_dir in animal_path.iterdir():
+                if breed_dir.is_dir():
+                    image_count = len(list(breed_dir.glob('*.jpg'))) + len(list(breed_dir.glob('*.png')))
+                    breed_counts[animal_type][breed_dir.name] = image_count
+    
+    return breed_counts
+
 def main():
     """Main training function."""
     parser = argparse.ArgumentParser(description='Train cattle breed classification model')
-    parser.add_argument('--data_dir', type=str, default='../data/train',
-                       help='Path to training data directory')
+    parser.add_argument('--data_dir', type=str, default='../Dataset',
+                       help='Path to training data directory (should contain Buffalo/ and Cattle/ folders)')
     parser.add_argument('--img_size', type=int, nargs=2, default=[224, 224],
                        help='Image size (height width)')
     parser.add_argument('--batch_size', type=int, default=32,
@@ -257,7 +321,22 @@ def main():
     print("🐃 Bugs of Buffalo - Model Training")
     print("=" * 50)
     
-    print("Creating data generators...")
+    # Analyze dataset
+    print("Analyzing dataset structure...")
+    breed_counts = analyze_dataset(args.data_dir)
+    
+    print("\\nDataset Statistics:")
+    total_images = 0
+    for animal_type, breeds in breed_counts.items():
+        print(f"\\n{animal_type}:")
+        for breed, count in breeds.items():
+            print(f"  {breed}: {count} images")
+            total_images += count
+    
+    print(f"\\nTotal images: {total_images}")
+    
+    # Create data generators
+    print("\\nCreating data generators...")
     train_gen, val_gen, class_names = create_data_generators(
         data_dir=args.data_dir,
         img_size=tuple(args.img_size),
@@ -269,6 +348,7 @@ def main():
     print(f"Training samples: {train_gen.samples}")
     print(f"Validation samples: {val_gen.samples}")
     
+    # Create model
     print("Creating model...")
     model = create_model(
         input_shape=(args.img_size[0], args.img_size[1], 3),
@@ -277,8 +357,9 @@ def main():
     
     model.summary()
     
+    # Callbacks
     callbacks = [
-        EarlyStopping(monitor='val_loss', patience=8, restore_best_weights=True, verbose=1),
+        EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True, verbose=1),
         ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=1e-7, verbose=1),
         ModelCheckpoint(
             '../saved_model/best_model.h5',
@@ -289,6 +370,7 @@ def main():
         )
     ]
     
+    # Train the model
     print("Starting initial training...")
     history = train_model(
         model=model,
@@ -298,6 +380,7 @@ def main():
         callbacks=callbacks
     )
     
+    # Fine-tune the model
     print("Starting fine-tuning...")
     fine_tune_history = fine_tune_model(
         model=model,
@@ -306,8 +389,9 @@ def main():
         fine_tune_epochs=args.fine_tune_epochs
     )
     
+    # Save model and artifacts
     print("Saving model and artifacts...")
-    model_path, mapping_path = save_model_and_artifacts(
+    model_path, mapping_path, breed_types_path = save_model_and_artifacts(
         model=model,
         class_names=class_names,
         train_generator=train_gen,
@@ -315,18 +399,23 @@ def main():
         fine_tune_history=fine_tune_history
     )
     
+    # Plot training history
     print("Plotting training history...")
     plot_training_history(history, fine_tune_history)
     
-    final_loss, final_accuracy, final_precision, final_recall = model.evaluate(val_gen, verbose=0)
+    # Final evaluation
+    print("Final evaluation:")
+    final_loss, final_accuracy, final_precision, final_recall, final_f1 = model.evaluate(val_gen, verbose=0)
     print(f"Validation Loss: {final_loss:.4f}")
     print(f"Validation Accuracy: {final_accuracy:.4f}")
     print(f"Validation Precision: {final_precision:.4f}")
     print(f"Validation Recall: {final_recall:.4f}")
+    print(f"Validation F1 Score: {final_f1:.4f}")
     
-    print("\n✅ Training completed successfully!")
+    print("\\n✅ Training completed successfully!")
     print(f"Model saved to: {model_path}")
     print(f"Class mapping saved to: {mapping_path}")
+    print(f"Breed types saved to: {breed_types_path}")
 
 if __name__ == "__main__":
     main()
