@@ -19,24 +19,39 @@ def download_file(url, filename):
             size = f.write(data)
             pbar.update(size)
 
-# Create data directory
-os.makedirs('ml-model/data', exist_ok=True)
-
-# Download dataset (you'll need to find a direct download URL)
-# Note: Kaggle datasets require authentication, so this might not work
-# This is just a template - you might need to manually download
-dataset_url = "YOUR_DIRECT_DOWNLOAD_LINK_HERE"  # You'll need to get this
-zip_path = "ml-model/data/dataset.zip"
-
-if dataset_url != "YOUR_DIRECT_DOWNLOAD_LINK_HERE":
-    print("Downloading dataset...")
-    download_file(dataset_url, zip_path)
+def main():
+    # Create data directory
+    os.makedirs('ml-model/data', exist_ok=True)
     
-    # Extract dataset
-    print("Extracting dataset...")
-    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        zip_ref.extractall("ml-model/data/")
+    # Direct download link for the dataset (you might need to update this)
+    # This is a placeholder - you'll need to get the actual direct download URL
+    dataset_url = "https://www.kaggle.com/datasets/lukex9442/indian-bovine-breeds"
     
-    print("Dataset ready!")
-else:
-    print("Please manually download the dataset from Kaggle and place it in ml-model/data/")
+    zip_path = "ml-model/data/dataset.zip"
+    extract_path = "ml-model/data/"
+
+    try:
+        print("Downloading dataset...")
+        download_file(dataset_url, zip_path)
+        
+        # Extract dataset
+        print("Extracting dataset...")
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(extract_path)
+        
+        # Clean up zip file
+        os.remove(zip_path)
+        
+        print("Dataset downloaded and extracted successfully!")
+        print(f"Data located at: {os.path.abspath(extract_path)}")
+        
+    except Exception as e:
+        print(f"Error downloading dataset: {e}")
+        print("\nPlease manually download the dataset:")
+        print("1. Go to: https://www.kaggle.com/datasets/lukex9442/indian-bovine-breeds")
+        print("2. Click 'Download' (requires Kaggle login)")
+        print("3. Extract the zip file to 'ml-model/data/indian-bovine-breeds/'")
+        print("4. The structure should be: ml-model/data/indian-bovine-breeds/train/...")
+
+if __name__ == "__main__":
+    main()
