@@ -1,8 +1,8 @@
-# 🐃 Bugs of Buffalo - Cattle Breed Identification System
+#  Bugs of Buffalo - Cattle Breed Identification System
 
 An AI-powered web application for identifying Indian cattle and buffalo breeds using image recognition with multilingual support.
 
-## 🌟 Features
+##  Features
 
 - **🐄 Image-based Breed Recognition**: Upload images to identify cattle/buffalo breeds
 - **🌍 Multilingual Support**: Get results in 11 Indian languages
