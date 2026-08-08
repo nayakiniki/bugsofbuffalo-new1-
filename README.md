@@ -1,6 +1,6 @@
 #  Bugs of Buffalo - Cattle Breed Identification System
 
-An AI-powered web application for identifying Indian cattle and buffalo breeds using image recognition with multilingual support. Built under Smart India Hackathon 2025 hosted by kiit university in a team of 12 people under the leadership of Eshita Kapat @Coding Ninjas KIIT Chapter
+An AI-powered web application for identifying Indian cattle and buffalo breeds using image recognition with multilingual support. Built under Smart India Hackathon 2025 hosted by kiit university in a team of 12 people under the leadership of Eshita Kapat @Coding Ninjas KIIT Chapter Contact 
 
 ##  Features
 
